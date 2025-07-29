@@ -47,14 +47,14 @@ const businessSchema = new mongoose.Schema({
   registrationNumber: {
     type: String,
     required: [true, 'Business registration number is required'],
-    unique: true,
-    trim: true
+    trim: true,
+    index: true
   },
   trn: {
     type: String,
     required: [true, 'TRN is required'],
-    unique: true,
-    match: [/^\d{9}$/, 'TRN must be exactly 9 digits']
+    match: [/^\d{9}$/, 'TRN must be exactly 9 digits'],
+    index: true
   },
   nis: {
     type: String,
@@ -260,8 +260,6 @@ const businessSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 businessSchema.index({ owner: 1 });
-businessSchema.index({ trn: 1 });
-businessSchema.index({ registrationNumber: 1 });
 businessSchema.index({ 'employees.user': 1 });
 
 // Virtual for employee count
@@ -284,6 +282,7 @@ businessSchema.methods.deactivateEmployee = function(userId) {
   }
   return this.save();
 }
+
 
 // Method to get active employees
 businessSchema.methods.getActiveEmployees = function() {

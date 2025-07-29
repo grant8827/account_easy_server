@@ -188,7 +188,7 @@ const transactionSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 transactionSchema.index({ business: 1, date: -1 });
-transactionSchema.index({ transactionNumber: 1 });
+transactionSchema.index({ transactionNumber: 1 }, { unique: true });
 transactionSchema.index({ type: 1, category: 1 });
 transactionSchema.index({ createdBy: 1 });
 transactionSchema.index({ date: 1 });

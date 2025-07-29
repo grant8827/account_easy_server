@@ -6,6 +6,43 @@ const Transaction = require('../models/Transaction');
 const { auth, businessAccess, ownerOrAdminAccess } = require('../middleware/auth');
 const router = express.Router();
 
+// Helper function to calculate tax summary for a business
+const calculateTaxSummary = async (business, period) => {
+    // Get all payroll records for the period
+    const payrolls = await Payroll.find({
+        business: business._id,
+        payPeriod: period
+    });
+
+    const summary = {
+        paye: { gross: 0, deductions: 0, netPay: 0, tax: 0 },
+        companyTax: { profit: 0, rate: 0.25, tax: 0 },
+        nis: { employee: 0, employer: 0, total: 0 },
+        education: { payroll: 0, rate: 0.025, tax: 0 },
+        heartTrust: { payroll: 0, rate: 0.03, tax: 0 }
+    };
+
+    // Calculate totals from payroll records
+    payrolls.forEach(payroll => {
+        summary.paye.gross += payroll.grossPay || 0;
+        summary.paye.deductions += payroll.totalDeductions || 0;
+        summary.paye.netPay += payroll.netPay || 0;
+        summary.paye.tax += payroll.paye || 0;
+        
+        summary.nis.employee += payroll.nis?.employee || 0;
+        summary.nis.employer += payroll.nis?.employer || 0;
+        summary.nis.total = summary.nis.employee + summary.nis.employer;
+
+        summary.education.payroll += payroll.grossPay || 0;
+        summary.education.tax += payroll.educationTax || 0;
+
+        summary.heartTrust.payroll += payroll.grossPay || 0;
+        summary.heartTrust.tax += payroll.heartTax || 0;
+    });
+
+    return summary;
+};
+
 // Jamaica Tax Constants for 2024
 const JAMAICA_TAX_RATES = {
   PAYE: {
@@ -573,6 +610,117 @@ router.get('/business/:businessId/compliance-check', auth, ownerOrAdminAccess, a
 // @route   POST /api/tax/business/:businessId/register-tax
 // @desc    Update business tax registration status
 // @access  Private (Owner only)
+// Get tax summary for a business
+router.get('/summary', auth, async (req, res) => {
+    try {
+        const { period } = req.query;
+        const user = req.userDoc;
+
+        if (!period) {
+            return res.status(400).json({
+                success: false,
+                message: 'Period parameter is required'
+            });
+        }
+
+        // Get selected business
+        const businessId = user.selectedBusiness;
+        if (!businessId) {
+            return res.status(400).json({
+                success: false,
+                message: 'No business selected'
+            });
+        }
+
+        const business = await Business.findById(businessId);
+        if (!business) {
+            return res.status(404).json({
+                success: false,
+                message: 'Business not found'
+            });
+        }
+
+        // Check business access
+        if (!user.businesses.includes(business._id) && user.role !== 'super_admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied to this business'
+            });
+        }
+
+        const summary = await calculateTaxSummary(business, period);
+
+        res.json({
+            success: true,
+            data: summary
+        });
+    } catch (error) {
+        console.error('Tax summary error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error retrieving tax summary'
+        });
+    }
+});
+
+// Get tax returns for a business
+router.get('/returns', auth, async (req, res) => {
+    try {
+        const { period } = req.query;
+        const user = req.userDoc;
+
+        if (!period) {
+            return res.status(400).json({
+                success: false,
+                message: 'Period parameter is required'
+            });
+        }
+
+        // Get selected business
+        const businessId = user.selectedBusiness;
+        if (!businessId) {
+            return res.status(400).json({
+                success: false,
+                message: 'No business selected'
+            });
+        }
+
+        const business = await Business.findById(businessId);
+        if (!business) {
+            return res.status(404).json({
+                success: false,
+                message: 'Business not found'
+            });
+        }
+
+        // Check business access
+        if (!user.businesses.includes(business._id) && user.role !== 'super_admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied to this business'
+            });
+        }
+
+        // Get tax returns for the period
+        const returns = await Transaction.find({
+            business: businessId,
+            type: { $in: ['gct', 'paye', 'company_tax', 'annual_return'] },
+            period: period
+        }).sort({ createdAt: -1 });
+
+        res.json({
+            success: true,
+            returns: returns
+        });
+    } catch (error) {
+        console.error('Tax returns error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error retrieving tax returns'
+        });
+    }
+});
+
 router.post('/business/:businessId/register-tax', auth, async (req, res) => {
   try {
     const { businessId } = req.params;

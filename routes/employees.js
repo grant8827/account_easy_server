@@ -165,6 +165,24 @@ const getEmployeesHandler = async (req, res) => {
     try {
         const { businessId } = req.params;
         
+        // Validate business access
+        const business = await Business.findById(businessId);
+        if (!business) {
+            return res.status(404).json({
+                success: false,
+                message: 'Business not found'
+            });
+        }
+
+        // Check if user has access to this business
+        const user = req.userDoc;
+        if (!user.businesses.includes(business._id) && user.role !== 'super_admin') {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied to this business'
+            });
+        }
+
         const employees = await Employee.find({ business: businessId })
             .populate('user', 'firstName lastName email')
             .select('-bankDetails -taxInfo');
@@ -210,6 +228,9 @@ const getEmployeeHandler = async (req, res) => {
 };
 
 // Routes
+router.use(auth); // Apply auth middleware to all employee routes
+
+// Protected routes
 router.post('/', createEmployeeHandler);
 router.get('/business/:businessId', getEmployeesHandler);
 router.get('/:employeeId', getEmployeeHandler);

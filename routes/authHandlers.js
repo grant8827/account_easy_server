@@ -50,10 +50,11 @@ module.exports = {
 
       // Create JWT payload
       const payload = {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        iat: Math.floor(Date.now() / 1000)
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role
+        }
       };
 
       // Sign token

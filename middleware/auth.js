@@ -77,6 +77,12 @@ const auth = async (req, res, next) => {
         // Add user to request
         req.user = decoded.user;
         req.userDoc = user;
+
+        // Populate businesses for convenience
+        if (user.businesses && user.businesses.length > 0) {
+            await user.populate('businesses');
+        }
+
         next();
     } catch (error) {
         console.error('Auth middleware error:', error.message);

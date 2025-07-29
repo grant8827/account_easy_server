@@ -81,10 +81,19 @@ const createBusinessHandler = async (req, res) => {
 
 const getBusinessesHandler = async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).populate('businesses');
+        // We now have the populated user document from the auth middleware
+        const user = req.userDoc;
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
         res.json({
             success: true,
-            businesses: user.businesses
+            businesses: user.businesses || []
         });
     } catch (error) {
         console.error('Get businesses error:', error);

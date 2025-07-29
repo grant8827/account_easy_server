@@ -18,8 +18,9 @@ app.use(cors({
     const allowedOrigins = [
       process.env.CLIENT_URL,
       'http://localhost:3000',
-      // Add your Railway client URL here if different from process.env.CLIENT_URL
-    ].filter(Boolean); // Remove any undefined values
+      'https://accounteasy-production.up.railway.app',
+      'https://accounteasy.up.railway.app'
+    ].filter(Boolean);
     
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
@@ -32,7 +33,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
 // Rate limiting

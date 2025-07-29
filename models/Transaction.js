@@ -9,7 +9,7 @@ const transactionSchema = new mongoose.Schema({
   transactionNumber: {
     type: String,
     required: [true, 'Transaction number is required'],
-    unique: true
+    index: true
   },
   type: {
     type: String,

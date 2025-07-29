@@ -14,7 +14,7 @@ const payrollSchema = new mongoose.Schema({
   payrollNumber: {
     type: String,
     required: [true, 'Payroll number is required'],
-    unique: true
+    index: true
   },
   payPeriod: {
     startDate: {

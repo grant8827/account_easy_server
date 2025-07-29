@@ -283,7 +283,7 @@ businessSchema.methods.deactivateEmployee = function(userId) {
     employee.endDate = new Date();
   }
   return this.save();
-};
+}
 
 // Method to get active employees
 businessSchema.methods.getActiveEmployees = function() {

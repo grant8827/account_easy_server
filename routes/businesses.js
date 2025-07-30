@@ -72,9 +72,30 @@ const createBusinessHandler = async (req, res) => {
         });
     } catch (error) {
         console.error('Business creation error:', error);
+        
+        // Handle validation errors
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors).map(err => err.message);
+            return res.status(400).json({
+                success: false,
+                message: 'Validation error',
+                errors: messages
+            });
+        }
+        
+        // Handle duplicate key errors
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyPattern)[0];
+            return res.status(400).json({
+                success: false,
+                message: `Business with this ${field} already exists`
+            });
+        }
+
         res.status(500).json({
             success: false,
-            message: 'Server error creating business'
+            message: 'Server error creating business',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

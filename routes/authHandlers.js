@@ -3,6 +3,29 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { validateRegistration } = require('../middleware/validation');
 
+// Helper function to create JWT token
+const createToken = (user) => {
+  const payload = {
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role
+    }
+  };
+
+  return new Promise((resolve, reject) => {
+    jwt.sign(
+      payload,
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' },
+      (err, token) => {
+        if (err) reject(err);
+        resolve(token);
+      }
+    );
+  });
+};
+
 module.exports = {
   // @desc    Register a new user
   // @route   POST /api/auth/register
@@ -49,39 +72,23 @@ module.exports = {
       await user.save();
 
       // Create JWT payload
-      const payload = {
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role
+      const token = await createToken(user);
+      res.status(201).json({
+        success: true,
+        message: 'Registration successful',
+        data: {
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            phone: user.phone,
+            address: user.address
+          }
         }
-      };
-
-      // Sign token
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' },
-        (err, token) => {
-          if (err) throw err;
-          res.status(201).json({
-            success: true,
-            message: 'Registration successful',
-            data: {
-              token,
-              user: {
-                id: user.id,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                role: user.role,
-                phone: user.phone,
-                address: user.address
-              }
-            }
-          });
-        }
-      );
+      });
     } catch (error) {
       console.error('Registration error:', error);
       res.status(500).json({
@@ -124,47 +131,29 @@ module.exports = {
         });
       }
 
-      // Create JWT payload
-      const payload = {
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role
+      // Create token and update last login
+      const token = await createToken(user);
+      user.lastLogin = new Date();
+      await user.save();
+
+      res.json({
+        success: true,
+        message: 'Login successful',
+        data: {
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role,
+            phone: user.phone,
+            address: user.address,
+            businesses: user.businesses,
+            currentBusiness: user.currentBusiness
+          }
         }
-      };
-
-      // Sign token
-      jwt.sign(
-        payload,
-        process.env.JWT_SECRET,
-        { expiresIn: '24h' },
-        (err, token) => {
-          if (err) throw err;
-
-          // Update last login
-          user.lastLogin = new Date();
-          user.save();
-
-          res.json({
-            success: true,
-            message: 'Login successful',
-            data: {
-              token,
-              user: {
-                id: user.id,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                role: user.role,
-                phone: user.phone,
-                address: user.address,
-                businesses: user.businesses,
-                currentBusiness: user.currentBusiness
-              }
-            }
-          });
-        }
-      );
+      });
     } catch (error) {
       console.error('Login error:', error);
       res.status(500).json({

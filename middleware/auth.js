@@ -37,7 +37,7 @@ const auth = async (req, res, next) => {
             
             decoded = jwt.verify(token, process.env.JWT_SECRET);
             
-            if (!decoded.userId) {
+            if (!decoded.user || !decoded.user.id) {
                 return res.status(401).json({
                     success: false,
                     message: 'Invalid token structure'

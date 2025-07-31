@@ -8,6 +8,9 @@ const router = express.Router();
 // Business route handlers
 const createBusinessHandler = async (req, res) => {
     try {
+        console.log('Creating business with data:', JSON.stringify(req.body, null, 2));
+        console.log('User from token:', req.user);
+        
         const {
             name,
             registrationNumber,
@@ -72,10 +75,18 @@ const createBusinessHandler = async (req, res) => {
         });
     } catch (error) {
         console.error('Business creation error:', error);
+        console.error('Error stack:', error.stack);
+        console.error('Error details:', {
+            name: error.name,
+            message: error.message,
+            code: error.code,
+            errors: error.errors
+        });
         
         // Handle validation errors
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(err => err.message);
+            console.error('Validation errors:', messages);
             return res.status(400).json({
                 success: false,
                 message: 'Validation error',
@@ -86,6 +97,7 @@ const createBusinessHandler = async (req, res) => {
         // Handle duplicate key errors
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern)[0];
+            console.error('Duplicate key error for field:', field);
             return res.status(400).json({
                 success: false,
                 message: `Business with this ${field} already exists`

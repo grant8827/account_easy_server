@@ -105,46 +105,28 @@ const createBusinessHandler = async (req, res) => {
 
 const getBusinessesHandler = async (req, res) => {
     try {
-        console.log('Getting businesses for user:', req.user);
-        console.log('User document:', req.userDoc ? 'Found' : 'Not found');
+        // We now have the populated user document from the auth middleware
+        const user = req.userDoc;
         
-        // Use the populated user document from auth middleware
-        let user = req.userDoc;
-        
-        // If userDoc is not available, fetch the user with populated businesses
         if (!user) {
-            console.log('User document not found in request, fetching from database...');
-            user = await User.findById(req.user.id).populate('businesses');
-            
-            if (!user) {
-                console.error('User not found in database:', req.user.id);
-                return res.status(404).json({
-                    success: false,
-                    message: 'User not found'
-                });
-            }
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
         }
-
-        // If businesses aren't populated, populate them
-        if (!user.businesses || user.businesses.length === 0 || typeof user.businesses[0] === 'string') {
-            console.log('Businesses not populated, populating now...');
-            await user.populate('businesses');
-        }
-
-        console.log('Returning businesses:', user.businesses?.length || 0);
 
         res.json({
             success: true,
             businesses: user.businesses || []
         });
     } catch (error) {
-        console.error('Get businesses error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error retrieving businesses',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
-    }
+  console.error('Get businesses error:', error);
+  res.status(500).json({
+    success: false,
+    message: 'Server error retrieving businesses',
+    error: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
+}
 };
 
 const getBusinessHandler = async (req, res) => {

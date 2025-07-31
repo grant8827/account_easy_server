@@ -75,18 +75,10 @@ const createBusinessHandler = async (req, res) => {
         });
     } catch (error) {
         console.error('Business creation error:', error);
-        console.error('Error stack:', error.stack);
-        console.error('Error details:', {
-            name: error.name,
-            message: error.message,
-            code: error.code,
-            errors: error.errors
-        });
         
         // Handle validation errors
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(err => err.message);
-            console.error('Validation errors:', messages);
             return res.status(400).json({
                 success: false,
                 message: 'Validation error',
@@ -97,7 +89,6 @@ const createBusinessHandler = async (req, res) => {
         // Handle duplicate key errors
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern)[0];
-            console.error('Duplicate key error for field:', field);
             return res.status(400).json({
                 success: false,
                 message: `Business with this ${field} already exists`
@@ -114,15 +105,33 @@ const createBusinessHandler = async (req, res) => {
 
 const getBusinessesHandler = async (req, res) => {
     try {
-        // We now have the populated user document from the auth middleware
-        const user = req.userDoc;
+        console.log('Getting businesses for user:', req.user);
+        console.log('User document:', req.userDoc ? 'Found' : 'Not found');
         
+        // Use the populated user document from auth middleware
+        let user = req.userDoc;
+        
+        // If userDoc is not available, fetch the user with populated businesses
         if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
+            console.log('User document not found in request, fetching from database...');
+            user = await User.findById(req.user.id).populate('businesses');
+            
+            if (!user) {
+                console.error('User not found in database:', req.user.id);
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
         }
+
+        // If businesses aren't populated, populate them
+        if (!user.businesses || user.businesses.length === 0 || typeof user.businesses[0] === 'string') {
+            console.log('Businesses not populated, populating now...');
+            await user.populate('businesses');
+        }
+
+        console.log('Returning businesses:', user.businesses?.length || 0);
 
         res.json({
             success: true,
@@ -132,7 +141,8 @@ const getBusinessesHandler = async (req, res) => {
         console.error('Get businesses error:', error);
         res.status(500).json({
             success: false,
-            message: 'Server error retrieving businesses'
+            message: 'Server error retrieving businesses',
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

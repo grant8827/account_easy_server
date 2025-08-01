@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Business = require('../models/Business');
 const { auth, superAdminAccess } = require('../middleware/auth');
 
 // @route   GET /api/admin/pending-accounts
@@ -365,6 +366,68 @@ router.post('/toggle-user-status/:userId', auth, superAdminAccess, async (req, r
         res.status(500).json({
             success: false,
             message: 'Server error while updating user status'
+        });
+    }
+});
+
+// @route   GET /api/admin/stats
+// @desc    Get admin dashboard statistics
+// @access  Super Admin only
+router.get('/stats', auth, superAdminAccess, async (req, res) => {
+    try {
+        // Calculate date for "recent" (last 7 days)
+        const lastWeek = new Date();
+        lastWeek.setDate(lastWeek.getDate() - 7);
+
+        // Get user statistics
+        const totalUsers = await User.countDocuments();
+        const activeUsers = await User.countDocuments({ isActive: true });
+        const recentRegistrations = await User.countDocuments({ 
+            createdAt: { $gte: lastWeek } 
+        });
+
+        // Get business statistics
+        const totalBusinesses = await Business.countDocuments();
+
+        // Get approval status statistics
+        const pendingApprovals = await User.countDocuments({ 
+            approvalStatus: 'pending' 
+        });
+        const approvedUsers = await User.countDocuments({ 
+            approvalStatus: 'approved' 
+        });
+        const rejectedUsers = await User.countDocuments({ 
+            approvalStatus: 'rejected' 
+        });
+
+        // Get role distribution
+        const roleStats = await User.aggregate([
+            {
+                $group: {
+                    _id: '$role',
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                totalUsers,
+                activeUsers,
+                recentRegistrations,
+                totalBusinesses,
+                pendingApprovals,
+                approvedUsers,
+                rejectedUsers,
+                roleDistribution: roleStats
+            }
+        });
+    } catch (error) {
+        console.error('Get admin stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Server error while fetching admin statistics'
         });
     }
 });

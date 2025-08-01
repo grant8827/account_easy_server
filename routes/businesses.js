@@ -157,8 +157,8 @@ const getBusinessHandler = async (req, res) => {
 };
 
 // Routes
-router.post('/', createBusinessHandler);
-router.get('/', getBusinessesHandler);
-router.get('/:businessId', getBusinessHandler);
+router.post('/', auth, createBusinessHandler);
+router.get('/', auth, getBusinessesHandler);
+router.get('/:businessId', auth, getBusinessHandler);
 
 module.exports = router;

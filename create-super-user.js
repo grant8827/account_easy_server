@@ -42,7 +42,9 @@ const createSuperUser = async () => {
       trn: '123456789',
       nis: '987654321',
       isActive: true,
-      emailVerified: true
+      emailVerified: true,
+      approvalStatus: 'approved', // Super admin is pre-approved
+      approvalDate: new Date()
     };
 
     console.log('🔐 Creating super user...');

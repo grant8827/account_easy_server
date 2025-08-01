@@ -61,7 +61,8 @@ module.exports = {
         phone,
         address,
         isActive: true,
-        emailVerified: false
+        emailVerified: false,
+        approvalStatus: role === 'super_admin' ? 'approved' : 'pending' // Super admins are auto-approved
       });
 
       // Hash password
@@ -71,7 +72,24 @@ module.exports = {
       // Save user
       await user.save();
 
-      // Create JWT payload
+      if (user.approvalStatus === 'pending') {
+        return res.status(201).json({
+          success: true,
+          message: 'Registration successful. Your account is pending approval by a super administrator.',
+          data: {
+            user: {
+              id: user.id,
+              email: user.email,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              role: user.role,
+              approvalStatus: user.approvalStatus
+            }
+          }
+        });
+      }
+
+      // Create JWT payload for approved users (super_admin)
       const token = await createToken(user);
       res.status(201).json({
         success: true,
@@ -119,6 +137,18 @@ module.exports = {
         return res.status(401).json({
           success: false,
           message: 'Your account has been deactivated'
+        });
+      }
+
+      // Check approval status
+      if (user.approvalStatus !== 'approved') {
+        let message = 'Your account is pending approval by a super administrator';
+        if (user.approvalStatus === 'rejected') {
+          message = `Your account has been rejected${user.rejectionReason ? ': ' + user.rejectionReason : ''}`;
+        }
+        return res.status(401).json({
+          success: false,
+          message
         });
       }
 

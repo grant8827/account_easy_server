@@ -16,14 +16,16 @@ const createEmployeeHandler = async (req, res) => {
             employment,
             compensation,
             taxInfo,
-            bankDetails
+            bankDetails,
+            // Allow creating user data directly
+            userData
         } = req.body;
 
         // Validate required fields
-        if (!userId || !businessId || !personalInfo || !employment || !compensation) {
+        if (!businessId || !personalInfo || !employment || !compensation) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields'
+                message: 'Missing required fields: business, personalInfo, employment, compensation'
             });
         }
 
@@ -51,19 +53,51 @@ const createEmployeeHandler = async (req, res) => {
             });
         }
 
-        // Check if user exists
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
+        let user;
+        
+        // If userId is provided, use existing user
+        if (userId) {
+            user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+        } 
+        // If userData is provided, create new user
+        else if (userData && userData.email) {
+            // Check if user with email already exists
+            const existingUser = await User.findOne({ email: userData.email });
+            if (existingUser) {
+                user = existingUser;
+            } else {
+                // Create new user for the employee
+                user = new User({
+                    firstName: userData.firstName || 'Employee',
+                    lastName: userData.lastName || 'User',
+                    email: userData.email,
+                    phone: userData.phone || '',
+                    role: 'employee',
+                    password: Math.random().toString(36).slice(-8), // Temporary password
+                    approvalStatus: 'approved', // Auto-approve employee users
+                    isActive: true,
+                    trn: taxInfo?.trn || '',
+                    nis: taxInfo?.nis || ''
+                });
+                await user.save();
+            }
+        } else {
+            return res.status(400).json({
                 success: false,
-                message: 'User not found'
+                message: 'Either user ID or user data (with email) must be provided'
             });
         }
 
         // Check if employee already exists
         const existingEmployee = await Employee.findOne({
             business: businessId,
-            user: userId
+            user: user._id
         });
 
         if (existingEmployee) {
@@ -80,7 +114,7 @@ const createEmployeeHandler = async (req, res) => {
 
         // Create new employee
         const employee = new Employee({
-            user: userId,
+            user: user._id,
             business: businessId,
             employeeId,
             personalInfo: {
@@ -113,9 +147,9 @@ const createEmployeeHandler = async (req, res) => {
         }
 
         // Add employee to business's employees array
-        if (!business.employees.some(emp => emp.user.toString() === userId)) {
+        if (!business.employees.some(emp => emp.user.toString() === user._id.toString())) {
             business.employees.push({
-                user: userId,
+                user: user._id,
                 role: employment.role || 'employee',
                 employeeId: employee.employeeId
             });

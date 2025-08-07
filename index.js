@@ -97,6 +97,7 @@ app.get('/test', (req, res) => {
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/businesses', require('./routes/businesses'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/transactions', require('./routes/transactions'));

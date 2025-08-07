@@ -144,11 +144,6 @@ const businessSchema = new mongoose.Schema({
       ]
     }
   },
-  owner: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Business owner is required']
-  },
   employees: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,

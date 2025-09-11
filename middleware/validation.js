@@ -45,29 +45,44 @@ const payrollRules = () => {
 // Transaction validation rules
 const transactionRules = () => {
     return [
+        body('business')
+            .notEmpty()
+            .isMongoId()
+            .withMessage('Valid business ID is required'),
         body('type')
             .notEmpty()
-            .isIn(['income', 'expense'])
-            .withMessage('Transaction type must be either income or expense'),
+            .isIn(['income', 'expense', 'asset_purchase', 'asset_sale', 'liability', 'equity', 'transfer', 'adjustment'])
+            .withMessage('Transaction type must be a valid type'),
         body('category')
             .notEmpty()
             .withMessage('Category is required'),
+        body('description')
+            .notEmpty()
+            .withMessage('Description is required'),
         body('amount')
             .notEmpty()
             .isNumeric()
-            .withMessage('Amount must be a number'),
+            .withMessage('Amount must be a number and is required'),
         body('currency')
-            .notEmpty()
+            .optional()
             .isLength({ min: 3, max: 3 })
             .withMessage('Currency must be a 3-letter code'),
         body('date')
             .optional()
             .isISO8601()
             .withMessage('Date must be in ISO format'),
-        body('description')
+        body('paymentMethod')
             .optional()
             .isString()
-            .withMessage('Description must be a string')
+            .withMessage('Payment method must be a string'),
+        body('reference')
+            .optional()
+            .isString()
+            .withMessage('Reference must be a string'),
+        body('status')
+            .optional()
+            .isIn(['pending', 'completed', 'cancelled'])
+            .withMessage('Status must be pending, completed, or cancelled')
     ];
 };
 

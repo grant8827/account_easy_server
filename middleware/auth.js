@@ -165,7 +165,7 @@ const businessAccess = async (req, res, next) => {
 };
 
 // Super Admin access middleware
-const superAdminAccess = async (req, res, next) => {
+const requireSuperAdmin = async (req, res, next) => {
     try {
         const user = await User.findById(req.user.id);
         if (!user) {
@@ -178,7 +178,7 @@ const superAdminAccess = async (req, res, next) => {
         if (user.role !== 'super_admin') {
             return res.status(403).json({
                 success: false,
-                message: 'Access denied. Super admin role required'
+                message: 'Access denied. Super admin privileges required.'
             });
         }
 
@@ -187,14 +187,18 @@ const superAdminAccess = async (req, res, next) => {
         console.error('Super admin access middleware error:', error.message);
         res.status(500).json({
             success: false,
-            message: 'Server error checking super admin access'
+            message: 'Server error checking admin permissions'
         });
     }
 };
 
+// Alias for auth function for consistency
+const authenticateToken = auth;
+
 module.exports = {
     auth,
+    authenticateToken,
     businessAccess,
     ownerOrAdminAccess,
-    superAdminAccess
+    requireSuperAdmin
 };

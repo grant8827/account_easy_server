@@ -125,7 +125,7 @@ const businessSchema = new mongoose.Schema({
     phone: {
       type: String,
       required: [true, 'Phone number is required'],
-      match: [/^\+?[1-9]\d{1,14}$/, 'Please enter a valid phone number']
+      match: [/^\+?[\d\s\-\(\)]{7,20}$/, 'Please enter a valid phone number']
     },
     email: {
       type: String,

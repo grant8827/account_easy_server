@@ -18,8 +18,8 @@ app.use(cors({
     const allowedOrigins = [
       process.env.CLIENT_URL,
       'http://localhost:3000',
-      'https://accounteasy-production.up.railway.app',
-      'https://accounteasy.up.railway.app'
+      'https://accounteezy-production.up.railway.app',
+      'https://accounteezy.up.railway.app'
     ].filter(Boolean);
     
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -66,7 +66,7 @@ if (process.env.NODE_ENV === 'production') {
 const connectDB = async () => {
   try {
     // Try different connection strings
-    const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/financial_staffing';
+    const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/accounteezy';
     console.log('Attempting to connect to MongoDB at:', uri);
     
     const conn = await mongoose.connect(uri, {

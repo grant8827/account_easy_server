@@ -14,7 +14,7 @@ const employeeSchema = new mongoose.Schema({
   employeeId: {
     type: String,
     required: [true, 'Employee ID is required'],
-    index: true
+    unique: true
   },
   personalInfo: {
     dateOfBirth: {
@@ -301,17 +301,23 @@ const employeeSchema = new mongoose.Schema({
 // Indexes for better query performance
 employeeSchema.index({ user: 1 });
 employeeSchema.index({ business: 1 });
-employeeSchema.index({ employeeId: 1 });
 employeeSchema.index({ 'taxInfo.trn': 1 });
 employeeSchema.index({ 'taxInfo.nis': 1 });
 employeeSchema.index({ isActive: 1 });
 
 // Pre-save middleware to generate employee ID
 employeeSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const count = await this.constructor.countDocuments({ business: this.business });
-    const year = new Date().getFullYear();
-    this.employeeId = `EMP-${year}-${String(count + 1).padStart(4, '0')}`;
+  if (this.isNew && !this.employeeId) {
+    try {
+      // Count employees for this specific business
+      const count = await this.constructor.countDocuments({ business: this.business });
+      const year = new Date().getFullYear();
+      this.employeeId = `EMP-${year}-${String(count + 1).padStart(4, '0')}`;
+      console.log(`Generated employeeId: ${this.employeeId} for business: ${this.business}`);
+    } catch (error) {
+      console.error('Error generating employee ID:', error);
+      return next(error);
+    }
   }
   
   // Update leave remaining days

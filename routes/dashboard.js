@@ -1,106 +1,242 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const Business = require('../models/Business');
 const Employee = require('../models/Employee');
 const Transaction = require('../models/Transaction');
-const Payroll = require('../models/Payroll');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get dashboard statistics for the current user
-const getDashboardStats = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const user = req.userDoc;
+// @route   GET /api/dashboard/summary
+// @desc    Get dashboard summary data for the authenticated user
+// @access  Private
+router.get('/summary', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
 
-        // Initialize stats
-        let stats = {
-            totalBusinesses: 0,
-            totalEmployees: 0,
-            monthlyPayroll: 0,
-            pendingTransactions: 0
-        };
+    // Get user's businesses
+    const businesses = await Business.find({
+      $or: [
+        { owner: userId },
+        { 'employees.user': userId }
+      ]
+    }).select('_id name owner');
 
-        // For super_admin, get all businesses
-        if (user.role === 'super_admin') {
-            // Total businesses (all)
-            stats.totalBusinesses = await Business.countDocuments();
-            
-            // Total employees (all)
-            stats.totalEmployees = await Employee.countDocuments();
-            
-            // Monthly payroll (all active employees)
-            const allEmployees = await Employee.find({ 
-                'employment.status': 'active' 
-            }).select('compensation.basicSalary compensation.allowances');
-            
-            stats.monthlyPayroll = allEmployees.reduce((total, emp) => {
-                return total + (emp.compensation.basicSalary || 0) + (emp.compensation.allowances || 0);
-            }, 0);
-            
-            // Pending transactions (all)
-            stats.pendingTransactions = await Transaction.countDocuments({ 
-                status: 'pending' 
-            });
-        } else {
-            // For regular users, find businesses they own or are employed by
-            const ownedBusinesses = await Business.find({ owner: userId }).select('_id');
-            const employedBusinesses = await Business.find({ 
-                'employees.user': userId,
-                'employees.isActive': true 
-            }).select('_id');
-            
-            // Combine owned and employed businesses (remove duplicates)
-            const allUserBusinessIds = [
-                ...ownedBusinesses.map(b => b._id),
-                ...employedBusinesses.map(b => b._id)
-            ];
-            const uniqueBusinessIds = [...new Set(allUserBusinessIds.map(id => id.toString()))];
-            
-            if (uniqueBusinessIds.length > 0) {
-                // Total businesses accessible by user
-                stats.totalBusinesses = uniqueBusinessIds.length;
-                
-                // Total employees in user's accessible businesses
-                stats.totalEmployees = await Employee.countDocuments({
-                    business: { $in: uniqueBusinessIds }
-                });
-                
-                // Monthly payroll for user's businesses
-                const userEmployees = await Employee.find({
-                    business: { $in: uniqueBusinessIds },
-                    'employment.status': 'active'
-                }).select('compensation.basicSalary compensation.allowances');
-                
-                stats.monthlyPayroll = userEmployees.reduce((total, emp) => {
-                    return total + (emp.compensation.basicSalary || 0) + (emp.compensation.allowances || 0);
-                }, 0);
-                
-                // Pending transactions for user's businesses
-                stats.pendingTransactions = await Transaction.countDocuments({
-                    business: { $in: uniqueBusinessIds },
-                    status: 'pending'
-                });
-            }
+    const businessIds = businesses.map(b => b._id);
+
+    // Get total employees across all user's businesses
+    const totalEmployees = await Employee.countDocuments({
+      business: { $in: businessIds }
+    });
+
+    // Get total pending transactions
+    const pendingTransactions = await Transaction.countDocuments({
+      business: { $in: businessIds },
+      status: 'pending'
+    });
+
+    // Calculate monthly payroll (sum of all employee salaries)
+    const payrollData = await Employee.aggregate([
+      {
+        $match: {
+          business: { $in: businessIds },
+          'employment.status': 'active'
         }
+      },
+      {
+        $group: {
+          _id: null,
+          totalMonthlyPayroll: { $sum: '$compensation.salary' }
+        }
+      }
+    ]);
 
-        res.json({
-            success: true,
-            data: stats
-        });
-    } catch (error) {
-        console.error('Dashboard stats error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Server error retrieving dashboard statistics',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+    const monthlyPayroll = payrollData.length > 0 ? payrollData[0].totalMonthlyPayroll : 0;
+
+    // Get recent transactions for activity feed
+    const recentTransactions = await Transaction.find({
+      business: { $in: businessIds }
+    })
+    .populate('business', 'name')
+    .populate('createdBy', 'firstName lastName')
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .select('description amount type date status business createdBy');
+
+    // Get monthly income vs expenses for the current year
+    const currentYear = new Date().getFullYear();
+    const monthlyFinancials = await Transaction.aggregate([
+      {
+        $match: {
+          business: { $in: businessIds },
+          date: {
+            $gte: new Date(currentYear, 0, 1),
+            $lte: new Date(currentYear, 11, 31)
+          },
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: {
+            month: { $month: '$date' },
+            type: '$type'
+          },
+          total: { $sum: '$amount' }
+        }
+      },
+      {
+        $sort: { '_id.month': 1 }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalBusinesses: businesses.length,
+          totalEmployees,
+          monthlyPayroll,
+          pendingTransactions
+        },
+        businesses: businesses.map(b => ({
+          _id: b._id,
+          name: b.name,
+          isOwner: b.owner.toString() === userId
+        })),
+        recentActivity: recentTransactions,
+        monthlyFinancials
+      }
+    });
+  } catch (error) {
+    console.error('Dashboard summary error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving dashboard data'
+    });
+  }
+});
+
+// @route   GET /api/dashboard/business/:businessId/stats
+// @desc    Get specific business statistics
+// @access  Private
+router.get('/business/:businessId/stats', auth, async (req, res) => {
+  try {
+    const { businessId } = req.params;
+    const userId = req.user.id;
+
+    // Verify user has access to this business
+    const business = await Business.findOne({
+      _id: businessId,
+      $or: [
+        { owner: userId },
+        { 'employees.user': userId }
+      ]
+    });
+
+    if (!business) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied or business not found'
+      });
     }
-};
 
-// Routes
-router.use(auth); // Apply auth middleware
+    // Get business-specific stats
+    const employeeCount = await Employee.countDocuments({
+      business: businessId,
+      'employment.status': 'active'
+    });
 
-router.get('/stats', getDashboardStats);
+    const transactionStats = await Transaction.aggregate([
+      {
+        $match: {
+          business: mongoose.Types.ObjectId(businessId)
+        }
+      },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$amount' }
+        }
+      }
+    ]);
+
+    const payrollTotal = await Employee.aggregate([
+      {
+        $match: {
+          business: mongoose.Types.ObjectId(businessId),
+          'employment.status': 'active'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSalary: { $sum: '$compensation.salary' }
+        }
+      }
+    ]);
+
+    // Get current month's financial summary
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+    const monthlyFinancials = await Transaction.aggregate([
+      {
+        $match: {
+          business: mongoose.Types.ObjectId(businessId),
+          date: { $gte: startOfMonth, $lte: endOfMonth },
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: '$type',
+          total: { $sum: '$amount' },
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const stats = transactionStats.reduce((acc, stat) => {
+      acc[stat._id] = {
+        count: stat.count,
+        totalAmount: stat.totalAmount
+      };
+      return acc;
+    }, {});
+
+    const financials = monthlyFinancials.reduce((acc, item) => {
+      acc[item._id] = {
+        total: item.total,
+        count: item.count
+      };
+      return acc;
+    }, {});
+
+    res.json({
+      success: true,
+      data: {
+        business: {
+          _id: business._id,
+          name: business.name
+        },
+        stats: {
+          employees: employeeCount,
+          monthlyPayroll: payrollTotal.length > 0 ? payrollTotal[0].totalSalary : 0,
+          transactions: stats,
+          currentMonth: financials
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Business stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error retrieving business statistics'
+    });
+  }
+});
 
 module.exports = router;

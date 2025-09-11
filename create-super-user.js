@@ -9,7 +9,7 @@ const Business = require('./models/Business');
 const createSuperUser = async () => {
   try {
     // Connect to MongoDB
-    const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/account_easy';
+    const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/accounteezy';
     console.log('🔗 Connecting to MongoDB...');
     await mongoose.connect(uri);
     console.log('✅ Connected to MongoDB');
@@ -28,7 +28,7 @@ const createSuperUser = async () => {
     const superUserData = {
       firstName: 'System',
       lastName: 'Administrator',
-      email: 'admin@accounteasy.com',
+      email: 'admin@accounteezy.com',
       password: 'SuperAdmin2025!', // You should change this
       role: 'super_admin',
       phone: '+18765550001',
@@ -42,9 +42,7 @@ const createSuperUser = async () => {
       trn: '123456789',
       nis: '987654321',
       isActive: true,
-      emailVerified: true,
-      approvalStatus: 'approved', // Super admin is pre-approved
-      approvalDate: new Date()
+      emailVerified: true
     };
 
     console.log('🔐 Creating super user...');
@@ -55,7 +53,7 @@ const createSuperUser = async () => {
 
     // Create a default admin business
     const adminBusiness = new Business({
-      name: 'Account Easy Administrative Services',
+      name: 'AccountEezy Administrative Services',
       registrationNumber: 'ADMIN001',
       trn: '100000001',
       nis: '100000001',
@@ -70,8 +68,8 @@ const createSuperUser = async () => {
       },
       contactInfo: {
         phone: '+18765550001',
-        email: 'admin@accounteasy.com',
-        website: 'https://accounteasy.com'
+        email: 'admin@accounteezy.com',
+        website: 'https://accounteezy.com'
       },
       owner: superUser._id,
       taxSettings: {
@@ -123,7 +121,7 @@ const createSuperUser = async () => {
 
 // Run the script
 if (require.main === module) {
-  console.log('🚀 Account Easy - Super User Setup');
+  console.log('🚀 AccountEezy - Super User Setup');
   console.log('=====================================');
   createSuperUser();
 }

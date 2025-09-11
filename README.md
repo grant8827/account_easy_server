@@ -1,4 +1,4 @@
-# Account Easy - Backend API
+# AccountEezy - Backend API
 
 A comprehensive multi-business financial staffing webapp backend built with Express.js and MongoDB, featuring Jamaica tax system integration.
 
@@ -193,7 +193,7 @@ Key environment variables to configure:
 ```
 PORT=5000
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/account_easy
+MONGODB_URI=mongodb://localhost:27017/accounteezy
 JWT_SECRET=your_jwt_secret
 JWT_REFRESH_SECRET=your_refresh_secret
 ```

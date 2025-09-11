@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🔧 Account Easy - Server Restart Script"
+echo "🔧 AccountEezy - Server Restart Script"
 echo "========================================"
 
 # Function to kill processes on port 5001
@@ -46,9 +46,9 @@ echo ""
 
 if check_mongodb; then
     echo ""
-    echo "🚀 Starting Account Easy server..."
+    echo "🚀 Starting AccountEezy server..."
     echo "   API will be available at: http://localhost:5001"
-    echo "   MongoDB database: account_easy"
+    echo "   MongoDB database: accounteezy"
     echo ""
     echo "📋 Available endpoints:"
     echo "   POST /api/auth/register - User registration"

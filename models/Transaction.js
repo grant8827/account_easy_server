@@ -8,7 +8,6 @@ const transactionSchema = new mongoose.Schema({
   },
   transactionNumber: {
     type: String,
-    required: [true, 'Transaction number is required'],
     index: true
   },
   type: {
@@ -28,49 +27,7 @@ const transactionSchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Category is required'],
-    enum: [
-      // Income categories
-      'sales_revenue',
-      'service_revenue',
-      'interest_income',
-      'rental_income',
-      'other_income',
-      
-      // Expense categories
-      'salaries_wages',
-      'rent_utilities',
-      'office_supplies',
-      'marketing_advertising',
-      'professional_fees',
-      'insurance',
-      'depreciation',
-      'interest_expense',
-      'travel_entertainment',
-      'maintenance_repairs',
-      'taxes_licenses',
-      'other_expenses',
-      
-      // Asset categories
-      'cash',
-      'accounts_receivable',
-      'inventory',
-      'equipment',
-      'buildings',
-      'land',
-      'investments',
-      'other_assets',
-      
-      // Liability categories
-      'accounts_payable',
-      'loans_payable',
-      'accrued_expenses',
-      'other_liabilities',
-      
-      // Equity categories
-      'owner_equity',
-      'retained_earnings',
-      'capital_contributions'
-    ]
+    trim: true
   },
   description: {
     type: String,
@@ -101,11 +58,11 @@ const transactionSchema = new mongoose.Schema({
     type: String,
     enum: [
       'cash',
-      'check',
+      'cheque',
       'bank_transfer',
       'credit_card',
       'debit_card',
-      'mobile_payment',
+      'mobile_money',
       'other'
     ]
   },

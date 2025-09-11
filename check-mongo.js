@@ -6,10 +6,10 @@ const checkMongoDB = async () => {
     
     // Try different connection strings
     const uris = [
-      'mongodb://127.0.0.1:27017/account_easy',
-      'mongodb://localhost:27017/account_easy',
-      'mongodb://127.0.0.1:27017/financial_staffing',
-      'mongodb://localhost:27017/financial_staffing'
+      'mongodb://127.0.0.1:27017/accounteezy',
+      'mongodb://localhost:27017/accounteezy',
+      'mongodb://127.0.0.1:27017/accounteezy',
+      'mongodb://localhost:27017/accounteezy'
     ];
 
     for (const uri of uris) {

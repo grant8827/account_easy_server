@@ -10,7 +10,7 @@ app.use(express.json());
 // Database connection
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/financial_staffing', {
+    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/accounteezy', {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });

@@ -10,22 +10,21 @@ const router = express.Router();
 const createEmployeeHandler = async (req, res) => {
     try {
         const {
-            user: userId,
+            userData,
             business: businessId,
+            employeeId,
             personalInfo,
             employment,
             compensation,
             taxInfo,
-            bankDetails,
-            // Allow creating user data directly
-            userData
+            bankDetails
         } = req.body;
 
         // Validate required fields
-        if (!businessId || !personalInfo || !employment || !compensation) {
+        if (!userData || !businessId || !personalInfo || !employment || !compensation || !taxInfo) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing required fields: business, personalInfo, employment, compensation'
+                message: 'Missing required fields: userData, business, personalInfo, employment, compensation, taxInfo are required'
             });
         }
 
@@ -34,6 +33,14 @@ const createEmployeeHandler = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Date of birth is required'
+            });
+        }
+
+        // Validate tax info
+        if (!taxInfo.trn || !taxInfo.nis) {
+            return res.status(400).json({
+                success: false,
+                message: 'TRN and NIS are required'
             });
         }
 
@@ -53,45 +60,60 @@ const createEmployeeHandler = async (req, res) => {
             });
         }
 
-        let user;
+        // Check if user already exists with this email
+        let user = await User.findOne({ email: userData.email.toLowerCase() });
         
-        // If userId is provided, use existing user
-        if (userId) {
-            user = await User.findById(userId);
-            if (!user) {
-                return res.status(404).json({
+        if (!user) {
+            // Create new user for the employee
+            const bcrypt = require('bcryptjs');
+            
+            // Validate TRN and NIS format for user
+            if (!taxInfo.trn || !/^\d{9}$/.test(taxInfo.trn)) {
+                return res.status(400).json({
                     success: false,
-                    message: 'User not found'
+                    message: 'TRN must be exactly 9 digits'
                 });
             }
-        } 
-        // If userData is provided, create new user
-        else if (userData && userData.email) {
-            // Check if user with email already exists
-            const existingUser = await User.findOne({ email: userData.email });
-            if (existingUser) {
-                user = existingUser;
-            } else {
-                // Create new user for the employee
-                user = new User({
-                    firstName: userData.firstName || 'Employee',
-                    lastName: userData.lastName || 'User',
-                    email: userData.email,
-                    phone: userData.phone || '',
-                    role: 'employee',
-                    password: Math.random().toString(36).slice(-8), // Temporary password
-                    approvalStatus: 'approved', // Auto-approve employee users
-                    isActive: true,
-                    trn: taxInfo?.trn || '',
-                    nis: taxInfo?.nis || ''
+            
+            if (!taxInfo.nis || !/^\d{9}$/.test(taxInfo.nis)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'NIS must be exactly 9 digits'
                 });
-                await user.save();
             }
-        } else {
-            return res.status(400).json({
-                success: false,
-                message: 'Either user ID or user data (with email) must be provided'
+            
+            user = new User({
+                email: userData.email.toLowerCase(),
+                password: userData.password || 'TempPass123!', // Temporary password
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                role: userData.role || 'employee',
+                phone: userData.phone,
+                trn: taxInfo.trn,
+                nis: taxInfo.nis,
+                isActive: true,
+                emailVerified: false
             });
+
+            // Hash password
+            const salt = await bcrypt.genSalt(12);
+            user.password = await bcrypt.hash(user.password, salt);
+            
+            try {
+                await user.save();
+                console.log('User created successfully:', user._id);
+            } catch (userError) {
+                console.error('User creation error:', userError);
+                if (userError.name === 'ValidationError') {
+                    const userErrorMessages = Object.values(userError.errors).map(err => `User ${err.path}: ${err.message}`);
+                    return res.status(400).json({
+                        success: false,
+                        message: 'User validation error',
+                        errors: userErrorMessages
+                    });
+                }
+                throw userError;
+            }
         }
 
         // Check if employee already exists
@@ -107,35 +129,58 @@ const createEmployeeHandler = async (req, res) => {
             });
         }
 
-        // Generate unique employee ID
-        const year = new Date().getFullYear().toString().substr(-2);
-        const count = await Employee.countDocuments({ business: businessId }) + 1;
-        const employeeId = `${business.registrationNumber}-${year}${count.toString().padStart(4, '0')}`;
+        // If employeeId is provided, check for duplicates
+        if (employeeId) {
+            const duplicateEmployeeId = await Employee.findOne({
+                business: businessId,
+                employeeId: employeeId
+            });
 
-        // Create new employee
+            if (duplicateEmployeeId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Employee ID already exists in this business'
+                });
+            }
+        }
+
+        // Create new employee (employeeId will be auto-generated by pre-save middleware if not provided)
         const employee = new Employee({
             user: user._id,
             business: businessId,
-            employeeId,
+            ...(employeeId && { employeeId }), // Include employeeId only if provided
             personalInfo: {
                 ...personalInfo,
                 dateOfBirth: new Date(personalInfo.dateOfBirth)
             },
             employment: {
                 ...employment,
-                startDate: new Date(employment.startDate),
+                startDate: new Date(employment.startDate || Date.now()),
                 endDate: employment.endDate ? new Date(employment.endDate) : undefined
             },
             compensation,
-            taxInfo: taxInfo || {
-                trn: user.trn,
-                nis: user.nis
-            },
+            taxInfo,
             bankDetails: bankDetails || {}
         });
 
         // Save employee
-        await employee.save();
+        try {
+            console.log('Attempting to save employee with data:', {
+                user: user._id,
+                business: businessId,
+                employeeId: employeeId || 'auto-generate',
+                personalInfo,
+                employment,
+                compensation,
+                taxInfo
+            });
+            
+            await employee.save();
+            console.log('Employee saved successfully:', employee._id, 'with employeeId:', employee.employeeId);
+        } catch (employeeError) {
+            console.error('Employee save error:', employeeError);
+            throw employeeError;
+        }
 
         // Update user's businesses array if not already included
         if (!user.businesses.includes(businessId)) {
@@ -144,16 +189,6 @@ const createEmployeeHandler = async (req, res) => {
                 user.currentBusiness = businessId;
             }
             await user.save();
-        }
-
-        // Add employee to business's employees array
-        if (!business.employees.some(emp => emp.user.toString() === user._id.toString())) {
-            business.employees.push({
-                user: user._id,
-                role: employment.role || 'employee',
-                employeeId: employee.employeeId
-            });
-            await business.save();
         }
 
         // Populate response data
@@ -166,20 +201,28 @@ const createEmployeeHandler = async (req, res) => {
         });
     } catch (error) {
         console.error('Employee creation error:', error);
+        console.error('Request body:', JSON.stringify(req.body, null, 2));
         
         // Handle validation errors
         if (error.name === 'ValidationError') {
-            const messages = Object.values(error.errors).map(err => err.message);
+            console.error('Validation errors:', error.errors);
+            const messages = Object.values(error.errors).map(err => ({
+                field: err.path,
+                message: err.message,
+                value: err.value
+            }));
             return res.status(400).json({
                 success: false,
                 message: 'Validation error',
-                errors: messages
+                errors: messages,
+                details: Object.keys(error.errors).map(key => `${key}: ${error.errors[key].message}`)
             });
         }
         
         // Handle duplicate key errors
         if (error.code === 11000) {
             const field = Object.keys(error.keyPattern)[0];
+            console.error('Duplicate key error:', field, error.keyValue);
             return res.status(400).json({
                 success: false,
                 message: `Duplicate ${field} error`,
@@ -218,12 +261,63 @@ const getEmployeesHandler = async (req, res) => {
         }
 
         const employees = await Employee.find({ business: businessId })
-            .populate('user', 'firstName lastName email')
-            .select('-bankDetails -taxInfo');
+            .populate('user', 'firstName lastName email phone')
+            .select('-bankDetails');
+
+        console.log(`Found ${employees.length} employees for business ${businessId}`);
+        console.log('Employee data:', employees.map(emp => ({
+            id: emp._id,
+            employeeId: emp.employeeId,
+            name: `${emp.user?.firstName} ${emp.user?.lastName}`,
+            position: emp.employment?.position
+        })));
+
+        // Transform employees to match frontend interface
+        const transformedEmployees = employees.map(employee => ({
+            _id: employee._id,
+            user: {
+                _id: employee.user._id,
+                firstName: employee.user.firstName,
+                lastName: employee.user.lastName,
+                email: employee.user.email,
+                phone: employee.user.phone
+            },
+            business: {
+                _id: employee.business,
+                name: business.name
+            },
+            employeeId: employee.employeeId,
+            personalInfo: employee.personalInfo,
+            employment: {
+                position: employee.employment.position,
+                department: employee.employment.department,
+                startDate: employee.employment.startDate,
+                endDate: employee.employment.endDate,
+                employmentType: employee.employment.employmentType,
+                status: employee.isActive ? 'active' : 'inactive', // Map isActive to status
+                salary: {
+                    amount: employee.compensation.baseSalary.amount,
+                    currency: employee.compensation.baseSalary.currency,
+                    frequency: employee.compensation.baseSalary.frequency
+                },
+                workSchedule: employee.employment.workSchedule || {
+                    hoursPerWeek: 40,
+                    workDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+                }
+            },
+            compliance: {
+                trn: employee.taxInfo.trn,
+                nis: employee.taxInfo.nis,
+                taxExemptionStatus: 'standard',
+                filingStatus: employee.taxInfo.taxStatus || 'single'
+            },
+            createdAt: employee.createdAt,
+            updatedAt: employee.updatedAt
+        }));
 
         res.json({
             success: true,
-            employees
+            employees: transformedEmployees
         });
     } catch (error) {
         console.error('Get employees error:', error);

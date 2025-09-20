@@ -8,7 +8,7 @@ const transactionSchema = new mongoose.Schema({
   },
   transactionNumber: {
     type: String,
-    index: true
+    // Index is defined explicitly below to avoid duplicate index warnings
   },
   type: {
     type: String,

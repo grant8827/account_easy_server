@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Check Data (server)",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"check-data.js"
+			],
+			"group": "build"
+		}
+	]
+}

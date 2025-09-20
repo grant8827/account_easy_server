@@ -13,8 +13,7 @@ const payrollSchema = new mongoose.Schema({
   },
   payrollNumber: {
     type: String,
-    required: [true, 'Payroll number is required'],
-    index: true
+    // Generated in pre-save hook; not required at input time
   },
   payPeriod: {
     startDate: {
